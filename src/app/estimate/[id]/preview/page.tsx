@@ -62,6 +62,127 @@ const templates: { value: TemplateType; label: string; description: string }[] =
     },
   ];
 
+function generateEmailSubject(
+  template: TemplateType,
+  data: EstimationRow
+): string {
+  const p = data.property_name || "";
+  const c = data.customer_name || "";
+  const subjects: Record<TemplateType, string> = {
+    estimate: `【御見積書】${p}${c ? ` - ${c}様` : ""}`,
+    update: `【更新】御見積書の内容を更新しました - ${p}`,
+    reminder: `【リマインド】御見積書のご確認 - ${p}`,
+    expiring: `【期限間近】御見積書の有効期限が近づいています - ${p}`,
+    thanks: `【お礼】ご成約ありがとうございます - ${p}`,
+  };
+  return subjects[template];
+}
+
+function generateEmailBody(
+  template: TemplateType,
+  data: EstimationRow
+): string {
+  const customer = data.customer_name || "";
+  const company = data.broker_company_name || "";
+  const broker = data.broker_name || "";
+  const property = data.property_name || "";
+  const expDate = data.expiration_date || "";
+  const initialTotal = data.costs
+    .reduce((a, c) => a + c.初期費用合計, 0)
+    .toLocaleString();
+  const monthlyTotal = data.costs
+    .reduce((a, c) => a + c.月次費用合計, 0)
+    .toLocaleString();
+
+  const bodyParts: Record<TemplateType, string> = {
+    estimate: [
+      `お世話になっております。${company}の${broker}でございます。`,
+      "",
+      "この度はお問い合わせいただきありがとうございます。",
+      "下記物件の御見積書をお送りいたします。ご確認のほどよろしくお願いいたします。",
+      "※ 御見積書のPDFも添付しておりますので、併せてご確認ください。",
+    ].join("\n"),
+    update: [
+      `お世話になっております。${company}の${broker}でございます。`,
+      "",
+      "御見積書の内容を更新いたしましたのでお知らせいたします。",
+      "最新の内容をご確認いただけますようお願いいたします。",
+      "※ 最新の御見積書PDFも添付しております。",
+    ].join("\n"),
+    reminder: [
+      `お世話になっております。${company}の${broker}でございます。`,
+      "",
+      "先日お送りいたしました御見積書につきまして、ご確認いただけましたでしょうか。",
+      ...(expDate
+        ? [`見積書の有効期限は${expDate}までとなっております。`]
+        : []),
+      "ご不明点等ございましたら、お気軽にお問い合わせください。",
+    ].join("\n"),
+    expiring: [
+      `お世話になっております。${company}の${broker}でございます。`,
+      "",
+      "先日お送りいたしました御見積書の有効期限が近づいております。",
+      ...(expDate ? [`有効期限: ${expDate}`] : []),
+      "",
+      "ご検討中の場合は、期限内にご連絡いただけますと幸いです。",
+      "条件の変更等もご相談承りますので、お気軽にお声がけください。",
+    ].join("\n"),
+    thanks: [
+      `お世話になっております。${company}の${broker}でございます。`,
+      "",
+      "この度はご成約いただき、誠にありがとうございます。",
+      "今後のお手続きにつきましては、改めてご連絡させていただきます。",
+      "ご不明点がございましたら、いつでもお問い合わせください。",
+    ].join("\n"),
+  };
+
+  const viewUrl = `${window.location.origin}/estimate/view/${data.id}`;
+  const buttonLabels: Record<TemplateType, string> = {
+    estimate: "見積書を確認する",
+    update: "更新された見積書を確認する",
+    reminder: "見積書を確認する",
+    expiring: "見積書を確認する",
+    thanks: "見積書の内容を確認する",
+  };
+
+  const lines: string[] = [];
+  lines.push(`${customer} 様`);
+  lines.push("");
+  lines.push(bodyParts[template]);
+  lines.push("");
+
+  if (property) {
+    lines.push(`【物件名】${property}`);
+    lines.push("");
+  }
+
+  if (template !== "thanks") {
+    lines.push(`  初期費用（税込）: ¥${initialTotal}`);
+    lines.push(`  月額費用（税込）: ¥${monthlyTotal}`);
+    lines.push("");
+  }
+
+  lines.push(`▼ ${buttonLabels[template]}`);
+  lines.push(viewUrl);
+  lines.push("");
+  lines.push("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+  lines.push(company);
+  if (data.broker_address)
+    lines.push(`〒 ${data.broker_address}`);
+  lines.push(`担当: ${broker}`);
+  if (data.broker_tel)
+    lines.push(
+      `TEL: ${data.broker_tel}${data.broker_fax ? `  FAX: ${data.broker_fax}` : ""}`
+    );
+  if (data.broker_email) lines.push(`メール: ${data.broker_email}`);
+  if (data.broker_license) lines.push(`免許: ${data.broker_license}`);
+  lines.push("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+  lines.push("");
+  lines.push(`※ このメールは${company}より送信されています。`);
+
+  return lines.join("\n");
+}
+
 export default function PreviewPage() {
   const params = useParams();
   const router = useRouter();
@@ -75,7 +196,8 @@ export default function PreviewPage() {
   const [emailTo, setEmailTo] = useState("");
   const [emailCc, setEmailCc] = useState("");
   const [template, setTemplate] = useState<TemplateType>("estimate");
-  const [customMessage, setCustomMessage] = useState("");
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailBody, setEmailBody] = useState("");
   const [sending, setSending] = useState(false);
   const [sendStep, setSendStep] = useState<"compose" | "confirm" | "done">(
     "compose"
@@ -116,18 +238,10 @@ export default function PreviewPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           to: allRecipients,
-          customerName: value.customer_name,
-          propertyName: value.property_name,
           estimationId: id,
           brokerCompanyName: value.broker_company_name,
-          brokerName: value.broker_name,
-          brokerTel: value.broker_tel,
-          brokerEmail: value.broker_email,
-          template,
-          initialTotal,
-          monthlyTotal,
-          expirationDate: value.expiration_date,
-          customMessage: customMessage || undefined,
+          subject: emailSubject,
+          emailBody,
         }),
       });
       const data = await res.json();
@@ -153,7 +267,8 @@ export default function PreviewPage() {
     setEmailTo("");
     setEmailCc("");
     setTemplate("estimate");
-    setCustomMessage("");
+    setEmailSubject("");
+    setEmailBody("");
     setSendResult(null);
   };
 
@@ -201,6 +316,10 @@ export default function PreviewPage() {
               onClick={() => {
                 setShowEmailPanel(true);
                 setSendStep("compose");
+                if (!emailBody && value) {
+                  setEmailSubject(generateEmailSubject("estimate", value));
+                  setEmailBody(generateEmailBody("estimate", value));
+                }
               }}
             >
               ✉️ メールで送信
@@ -270,14 +389,20 @@ export default function PreviewPage() {
                 {/* テンプレート選択 */}
                 <div>
                   <Label className="text-xs text-gray-500">
-                    メールテンプレート
+                    テンプレートを選択（本文が自動生成されます）
                   </Label>
                   <div className="grid grid-cols-5 gap-2 mt-1">
                     {templates.map((t) => (
                       <button
                         key={t.value}
                         type="button"
-                        onClick={() => setTemplate(t.value)}
+                        onClick={() => {
+                          setTemplate(t.value);
+                          setEmailSubject(
+                            generateEmailSubject(t.value, value)
+                          );
+                          setEmailBody(generateEmailBody(t.value, value));
+                        }}
                         className={`text-left p-2.5 rounded-lg border text-xs transition-all ${
                           template === t.value
                             ? "border-blue-500 bg-blue-50 ring-1 ring-blue-500"
@@ -293,68 +418,29 @@ export default function PreviewPage() {
                   </div>
                 </div>
 
-                {/* カスタムメッセージ */}
+                {/* 件名 */}
                 <div>
-                  <Label className="text-xs text-gray-500">
-                    追加メッセージ（任意）
-                  </Label>
-                  <Textarea
-                    placeholder="メール本文に追加したいメッセージがあれば入力してください..."
-                    value={customMessage}
-                    onChange={(e) => setCustomMessage(e.target.value)}
-                    className="h-16 text-sm mt-1 resize-none"
+                  <Label className="text-xs text-gray-500">件名</Label>
+                  <Input
+                    value={emailSubject}
+                    onChange={(e) => setEmailSubject(e.target.value)}
+                    placeholder="メールの件名"
+                    className="h-8 text-sm mt-1"
                   />
                 </div>
 
-                {/* 送信内容サマリー */}
-                <div className="bg-gray-50 rounded-lg p-3 border">
-                  <p className="text-[10px] text-gray-400 tracking-wider mb-2">
-                    送信内容プレビュー
-                  </p>
-                  <div className="grid grid-cols-2 gap-3 text-xs">
-                    <div>
-                      <span className="text-gray-400">宛先: </span>
-                      <span className="text-gray-700 font-medium">
-                        {value.customer_name} 様
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-gray-400">物件: </span>
-                      <span className="text-gray-700">
-                        {value.property_name || "—"}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-gray-400">初期費用: </span>
-                      <span className="text-gray-700 font-bold">
-                        ¥
-                        {value.costs
-                          .reduce((a, c) => a + c.初期費用合計, 0)
-                          .toLocaleString()}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-gray-400">月額費用: </span>
-                      <span className="text-gray-700 font-bold">
-                        ¥
-                        {value.costs
-                          .reduce((a, c) => a + c.月次費用合計, 0)
-                          .toLocaleString()}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-gray-400">差出人: </span>
-                      <span className="text-gray-700">
-                        {value.broker_company_name} ({value.broker_name})
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-gray-400">テンプレート: </span>
-                      <span className="text-gray-700">
-                        {templates.find((t) => t.value === template)?.label}
-                      </span>
-                    </div>
-                  </div>
+                {/* メール本文エディタ */}
+                <div>
+                  <Label className="text-xs text-gray-500">
+                    メール本文（自由に編集できます）
+                  </Label>
+                  <Textarea
+                    value={emailBody}
+                    onChange={(e) => setEmailBody(e.target.value)}
+                    placeholder="テンプレートを選択すると本文が自動生成されます"
+                    className="text-sm mt-1 font-mono leading-relaxed resize-none"
+                    style={{ minHeight: "320px" }}
+                  />
                 </div>
 
                 <div className="flex justify-end gap-2">
@@ -369,7 +455,7 @@ export default function PreviewPage() {
                     size="sm"
                     className="bg-blue-600 hover:bg-blue-700 text-white px-6"
                     onClick={() => setSendStep("confirm")}
-                    disabled={!emailTo}
+                    disabled={!emailTo || !emailBody || !emailSubject}
                   >
                     確認画面へ →
                   </Button>
@@ -400,34 +486,16 @@ export default function PreviewPage() {
                     )}
                     <div className="flex gap-2">
                       <span className="text-yellow-600 w-24 shrink-0">
-                        テンプレート:
+                        件名:
                       </span>
-                      <span>
-                        {templates.find((t) => t.value === template)?.label}
-                      </span>
+                      <span className="font-medium">{emailSubject}</span>
                     </div>
-                    <div className="flex gap-2">
-                      <span className="text-yellow-600 w-24 shrink-0">
-                        顧客名:
-                      </span>
-                      <span>{value.customer_name} 様</span>
-                    </div>
-                    <div className="flex gap-2">
-                      <span className="text-yellow-600 w-24 shrink-0">
-                        物件名:
-                      </span>
-                      <span>{value.property_name || "—"}</span>
-                    </div>
-                    {customMessage && (
-                      <div className="flex gap-2">
-                        <span className="text-yellow-600 w-24 shrink-0">
-                          追加メッセージ:
-                        </span>
-                        <span className="whitespace-pre-wrap">
-                          {customMessage}
-                        </span>
-                      </div>
-                    )}
+                  </div>
+                  <div className="mt-3 bg-white/60 border border-yellow-200 rounded p-3">
+                    <p className="text-[10px] text-yellow-600 mb-1">メール本文</p>
+                    <pre className="text-xs text-yellow-900 whitespace-pre-wrap font-sans leading-relaxed">
+                      {emailBody}
+                    </pre>
                   </div>
                 </div>
 
@@ -476,7 +544,6 @@ export default function PreviewPage() {
                       setSendStep("compose");
                       setEmailTo("");
                       setEmailCc("");
-                      setCustomMessage("");
                       setSendResult(null);
                     }}
                   >

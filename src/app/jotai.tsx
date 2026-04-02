@@ -169,9 +169,9 @@ const defaultFormState: ContactFormState = {
   broker: {
     name: "鯰江",
     company_name: "合同会社RHY",
-    tel: isDev ? "000-0000-0000" : "",
-    fax: isDev ? "000-0000-0000" : "",
-    email: isDev ? "dummy@example.com" : "",
+    tel: isDev ? "06-6224-0002" : "",
+    fax: isDev ? "06-6224-0003" : "",
+    email: isDev ? "info@kakushin-gijutu.com" : "",
     address: "大阪府大阪市東成区深江北1-3-5三好ビル306",
     license: "大阪府知事(1)第65124号",
   },

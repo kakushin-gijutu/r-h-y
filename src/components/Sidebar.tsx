@@ -8,6 +8,7 @@ const navItems = [
   { href: "/estimate", label: "見積書一覧" },
   { href: "/estimate/new", label: "新規作成" },
   { href: "/estimate/companies", label: "会社管理" },
+  { href: "/estimate/news", label: "お知らせ管理" },
 ];
 
 export function Sidebar() {
@@ -42,8 +43,14 @@ export function Sidebar() {
         {navItems.map((item) => {
           const isActive =
             item.href === "/estimate"
-              ? pathname === "/estimate"
-              : pathname.startsWith(item.href);
+              ? pathname === "/estimate" ||
+                (!navItems.some(
+                  (n) =>
+                    n.href !== "/estimate" &&
+                    (pathname === n.href || pathname.startsWith(n.href + "/"))
+                ) &&
+                  pathname.startsWith("/estimate"))
+              : pathname === item.href || pathname.startsWith(item.href + "/");
           return (
             <Link
               key={item.href}

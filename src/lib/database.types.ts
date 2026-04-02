@@ -64,6 +64,19 @@ export type CompanyRow = {
 export type CompanyInsert = Omit<CompanyRow, "id" | "created_at" | "updated_at">;
 export type CompanyUpdate = Partial<CompanyInsert>;
 
+export type NewsRow = {
+  id: string;
+  title: string;
+  content: string;
+  published: boolean;
+  published_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type NewsInsert = Omit<NewsRow, "id" | "created_at" | "updated_at">;
+export type NewsUpdate = Partial<NewsInsert>;
+
 export type Database = {
   public: {
     Tables: {
@@ -76,6 +89,11 @@ export type Database = {
         Row: CompanyRow;
         Insert: CompanyInsert;
         Update: CompanyUpdate;
+      };
+      news: {
+        Row: NewsRow;
+        Insert: NewsInsert;
+        Update: NewsUpdate;
       };
     };
   };
