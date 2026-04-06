@@ -5,7 +5,7 @@
  *
  * Runs automatically via predev/prestart in package.json.
  * On every "npm run dev" / "yarn dev" / "expo start":
- *   1. Syncs CLAUDE.md from kakushin_claude_rule (auto-clones if missing)
+ *   1. Syncs shared rules to .claude/rules/shared.md (from kakushin_claude_rule)
  *   2. git pull --rebase
  *   3. vercel env pull (if Vercel project)
  *   4. eas env:pull (if Expo/EAS project)
@@ -22,7 +22,7 @@
  */
 
 import { execSync } from "node:child_process";
-import { copyFileSync, existsSync, readFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 const RULE_REPO = "https://github.com/kakushin-gijutu/kakushin_claude_rule.git";
@@ -80,11 +80,12 @@ function ensureCLI(cmd, pkg) {
 }
 
 /**
- * Sync CLAUDE.md from kakushin_claude_rule repo.
- * Looks for the repo as a sibling directory, auto-clones if missing.
+ * Sync shared rules from kakushin_claude_rule repo.
+ * Clones/pulls the repo as a sibling directory, then copies
+ * CLAUDE.md → .claude/rules/shared.md inside the project.
+ * Also ensures CLAUDE.md exists with an @import directive.
  */
-function syncCLAUDEmd(projectRoot) {
-  // Find parent directory (e.g. ~/dev)
+function syncSharedRules(projectRoot) {
   const parentDir = resolve(projectRoot, "..");
   const ruleRepoPath = join(parentDir, RULE_DIR_NAME);
 
@@ -95,7 +96,7 @@ function syncCLAUDEmd(projectRoot) {
       execSync(`git clone ${RULE_REPO}`, { cwd: parentDir, stdio: "pipe", timeout: 30000 });
       log.success(`${RULE_DIR_NAME} cloned`);
     } catch {
-      log.warn(`${RULE_DIR_NAME} clone failed - skipping CLAUDE.md sync`);
+      log.warn(`${RULE_DIR_NAME} clone failed - skipping shared rules sync`);
       return;
     }
   }
@@ -109,12 +110,27 @@ function syncCLAUDEmd(projectRoot) {
     }
   }
 
-  // Copy CLAUDE.md to parent directory (shared across all projects)
+  // Copy to .claude/rules/shared.md
   const src = join(ruleRepoPath, "CLAUDE.md");
-  const dest = join(parentDir, "CLAUDE.md");
-  if (existsSync(src)) {
-    copyFileSync(src, dest);
-    log.success("CLAUDE.md synced");
+  if (!existsSync(src)) return;
+
+  const rulesDir = join(projectRoot, ".claude", "rules");
+  mkdirSync(rulesDir, { recursive: true });
+  copyFileSync(src, join(rulesDir, "shared.md"));
+  log.success("Shared rules synced (.claude/rules/shared.md)");
+
+  // Ensure .gitignore includes .claude/rules/shared.md
+  const gitignorePath = join(projectRoot, ".gitignore");
+  const ignoreEntry = ".claude/rules/shared.md";
+  if (existsSync(gitignorePath)) {
+    const content = readFileSync(gitignorePath, "utf-8");
+    if (!content.includes(ignoreEntry)) {
+      writeFileSync(gitignorePath, content.trimEnd() + "\n" + ignoreEntry + "\n", "utf-8");
+      log.success(".gitignore updated");
+    }
+  } else {
+    writeFileSync(gitignorePath, ignoreEntry + "\n", "utf-8");
+    log.success(".gitignore created");
   }
 }
 
@@ -150,8 +166,8 @@ function main() {
   console.log("");
   log.header(projectName);
 
-  // 1. Sync CLAUDE.md from kakushin_claude_rule
-  syncCLAUDEmd(projectRoot);
+  // 1. Sync shared rules from kakushin_claude_rule
+  syncSharedRules(projectRoot);
 
   // 2. git pull
   if (existsSync(join(projectRoot, ".git"))) {
