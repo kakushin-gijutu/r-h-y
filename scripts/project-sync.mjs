@@ -3,21 +3,14 @@
 /**
  * Project sync script (cross-platform: Mac / Windows / Linux)
  *
- * Auto-detects project type and runs:
- *   1. git pull --rebase
- *   2. vercel env pull (if Vercel project)
- *   3. eas env:pull (if Expo/EAS project)
+ * Runs automatically via predev/prestart in package.json.
+ * On every "npm run dev" / "yarn dev" / "expo start":
+ *   1. Syncs CLAUDE.md from kakushin_claude_rule (auto-clones if missing)
+ *   2. git pull --rebase
+ *   3. vercel env pull (if Vercel project)
+ *   4. eas env:pull (if Expo/EAS project)
  *
- * Missing CLIs are auto-installed on first run.
- *
- * Usage:
- *   node scripts/project-sync.mjs
- *
- * Integration with package.json:
- *   "scripts": {
- *     "sync": "node scripts/project-sync.mjs",
- *     "predev": "node scripts/project-sync.mjs"
- *   }
+ * Missing CLIs (vercel, eas) are auto-installed on first run.
  *
  * For monorepos, create sync.config.json:
  *   {
@@ -29,8 +22,11 @@
  */
 
 import { execSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { copyFileSync, existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+
+const RULE_REPO = "https://github.com/kakushin-gijutu/kakushin_claude_rule.git";
+const RULE_DIR_NAME = "kakushin_claude_rule";
 
 const noColor = process.env.NO_COLOR || (process.platform === "win32" && !process.env.WT_SESSION);
 const green = (s) => (noColor ? s : `\x1b[32m${s}\x1b[0m`);
@@ -83,6 +79,45 @@ function ensureCLI(cmd, pkg) {
   }
 }
 
+/**
+ * Sync CLAUDE.md from kakushin_claude_rule repo.
+ * Looks for the repo as a sibling directory, auto-clones if missing.
+ */
+function syncCLAUDEmd(projectRoot) {
+  // Find parent directory (e.g. ~/dev)
+  const parentDir = resolve(projectRoot, "..");
+  const ruleRepoPath = join(parentDir, RULE_DIR_NAME);
+
+  // Clone if missing
+  if (!existsSync(ruleRepoPath)) {
+    log.info(`Cloning ${RULE_DIR_NAME}...`);
+    try {
+      execSync(`git clone ${RULE_REPO}`, { cwd: parentDir, stdio: "pipe", timeout: 30000 });
+      log.success(`${RULE_DIR_NAME} cloned`);
+    } catch {
+      log.warn(`${RULE_DIR_NAME} clone failed - skipping CLAUDE.md sync`);
+      return;
+    }
+  }
+
+  // Pull latest
+  if (existsSync(join(ruleRepoPath, ".git"))) {
+    try {
+      execSync("git pull --rebase", { cwd: ruleRepoPath, stdio: "pipe", timeout: 15000 });
+    } catch {
+      // Ignore pull failure (offline, etc.)
+    }
+  }
+
+  // Copy CLAUDE.md
+  const src = join(ruleRepoPath, "CLAUDE.md");
+  const dest = join(projectRoot, "CLAUDE.md");
+  if (existsSync(src)) {
+    copyFileSync(src, dest);
+    log.success("CLAUDE.md synced");
+  }
+}
+
 /** Sync environment variables for a directory based on project type */
 function syncDirectory(dir, options = {}) {
   const abs = resolve(dir);
@@ -115,14 +150,17 @@ function main() {
   console.log("");
   log.header(projectName);
 
-  // 1. git pull
+  // 1. Sync CLAUDE.md from kakushin_claude_rule
+  syncCLAUDEmd(projectRoot);
+
+  // 2. git pull
   if (existsSync(join(projectRoot, ".git"))) {
     run("git pull --rebase", "git pull");
   } else {
     log.info("Not a git repository - skipping git pull");
   }
 
-  // 2. If sync.config.json exists, handle as monorepo
+  // 3. If sync.config.json exists, handle as monorepo
   const configPath = join(projectRoot, "sync.config.json");
   if (existsSync(configPath)) {
     try {
@@ -145,7 +183,7 @@ function main() {
     }
   }
 
-  // 3. Auto-detect project type
+  // 4. Auto-detect project type
   syncDirectory(projectRoot);
 
   console.log("");

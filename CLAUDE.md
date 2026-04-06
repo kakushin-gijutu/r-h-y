@@ -57,6 +57,21 @@
 - 新規機能を追加する場合は必ずテストコードを書くこと
 - テストが通る状態を維持して品質を保つこと
 
+### 本番環境の扱い
+
+- 本番環境のデータベースには決して触らないこと。操作が必要な場合は、毎回必ず事前に確認を取ること
+- 本番ブランチ（`main` / `master` / `production`）には絶対に直接コミットしないこと
+- その他のサービス（Vercel, Supabase, EAS等）の本番環境も、許可なく操作しないこと
+- 本番環境に対するPOST・DELETE・UPDATEの操作は一切禁止
+
+### ブランチ運用
+
+- 特に指示がない場合は `preview` ブランチで開発を続けること
+- ブランチ切り替えや `git stash` が必要な場合、変更が消失しないよう以下の手順を守ること:
+  1. stashした内容をremoteに反映した後、必ず `git stash pop` で戻す
+  2. stashを戻せない場合は、その変更だけの新規ブランチを作成しremoteにpush＆PRを作成して変更を保全する
+- いかなる場合も、コミット済み・未コミットを問わず変更が失われないようにすること
+
 ### コーディング規約
 
 - TypeScript strict mode
@@ -119,6 +134,21 @@
 
 - Always write test code when adding new features
 - Maintain a passing test suite to ensure quality
+
+### Production Environment Rules
+
+- Never touch the production database. Always ask for explicit permission before every operation
+- Never commit directly to production branches (`main` / `master` / `production`)
+- Do not operate on any production environment (Vercel, Supabase, EAS, etc.) without permission
+- POST, DELETE, and UPDATE operations against the production environment are strictly prohibited
+
+### Branch Workflow
+
+- By default, continue development on the `preview` branch unless otherwise instructed
+- When switching branches or using `git stash`, always ensure changes are never lost:
+  1. After applying stashed changes to remote, always restore with `git stash pop`
+  2. If the stash cannot be restored, create a new branch with those changes, push to remote, and open a PR to preserve them
+- Whether committed or uncommitted, changes must never be discarded or lost under any circumstances
 
 ### Coding Conventions
 
