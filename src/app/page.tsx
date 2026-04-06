@@ -242,7 +242,7 @@ function HeroSlider() {
                 transitionTimingFunction: "cubic-bezier(0.15, 0, 0.25, 1)",
                 transform: i === current ? "scale(1.08)" : "scale(1)",
               }}
-              priority={i === 0}
+              priority
             />
           </div>
           <div className="absolute inset-0 bg-gradient-to-r from-[#1a2744]/80 via-[#1a2744]/40 to-transparent" />
@@ -915,115 +915,10 @@ function Footer() {
   );
 }
 
-/* ─── JSON-LD ─── */
-function JsonLd() {
-  const data = {
-    "@context": "https://schema.org",
-    "@graph": [
-      {
-        "@type": "RealEstateAgent",
-        "@id": "https://r-h-y.jp/#organization",
-        name: "合同会社RHY",
-        url: "https://r-h-y.jp",
-        logo: "https://r-h-y.jp/images/og-image.jpg",
-        image: "https://r-h-y.jp/images/building-exterior.jpg",
-        description:
-          "合同会社RHYは大阪市東成区を拠点に不動産の売買・賃貸仲介、コンサルティングを行っております。",
-        founder: {
-          "@type": "Person",
-          name: "鯰江 清裕",
-          jobTitle: "代表取締役社長",
-        },
-        foundingDate: "2021-08-03",
-        address: {
-          "@type": "PostalAddress",
-          postalCode: "537-0002",
-          addressRegion: "大阪府",
-          addressLocality: "大阪市東成区",
-          streetAddress: "深江北一丁目3番5号 三好ビル306",
-          addressCountry: "JP",
-        },
-        areaServed: {
-          "@type": "City",
-          name: "大阪市",
-        },
-        openingHoursSpecification: {
-          "@type": "OpeningHoursSpecification",
-          dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
-          opens: "09:00",
-          closes: "18:00",
-        },
-        makesOffer: [
-          {
-            "@type": "Offer",
-            itemOffered: {
-              "@type": "Service",
-              name: "不動産売買仲介",
-              description: "マイホームの購入から投資用物件まで、不動産の売買をサポートいたします。",
-            },
-          },
-          {
-            "@type": "Offer",
-            itemOffered: {
-              "@type": "Service",
-              name: "不動産賃貸仲介",
-              description: "お住まいやオフィス・店舗の賃貸物件をご紹介いたします。",
-            },
-          },
-          {
-            "@type": "Offer",
-            itemOffered: {
-              "@type": "Service",
-              name: "不動産コンサルティング",
-              description: "資産活用や相続対策など、不動産に関するあらゆるご相談に対応いたします。",
-            },
-          },
-        ],
-      },
-      {
-        "@type": "WebSite",
-        "@id": "https://r-h-y.jp/#website",
-        url: "https://r-h-y.jp",
-        name: "合同会社RHY",
-        publisher: { "@id": "https://r-h-y.jp/#organization" },
-        inLanguage: "ja",
-      },
-      {
-        "@type": "WebPage",
-        "@id": "https://r-h-y.jp/#webpage",
-        url: "https://r-h-y.jp",
-        name: "合同会社RHY | 大阪の不動産売買・賃貸仲介",
-        isPartOf: { "@id": "https://r-h-y.jp/#website" },
-        about: { "@id": "https://r-h-y.jp/#organization" },
-        inLanguage: "ja",
-      },
-      {
-        "@type": "BreadcrumbList",
-        itemListElement: [
-          {
-            "@type": "ListItem",
-            position: 1,
-            name: "ホーム",
-            item: "https://r-h-y.jp",
-          },
-        ],
-      },
-    ],
-  };
-
-  return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
-    />
-  );
-}
-
 /* ─── Page ─── */
 export default function HomePage() {
   return (
     <main className="min-h-screen bg-white">
-      <JsonLd />
       <Header />
       <HeroSlider />
       <News />

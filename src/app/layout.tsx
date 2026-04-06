@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import { Analytics } from "@vercel/analytics/react";
 import { AppLayout } from "@/components/AppLayout";
+import { JsonLd } from "@/components/JsonLd";
 
 import "./globals.css";
 
@@ -109,6 +110,7 @@ export default function RootLayout({
 			<head>
 				<link rel="icon" href="/favicon.ico" sizes="any" />
 				<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+				<JsonLd />
 			</head>
 			<body
 				className={`${geistSans.variable} ${geistMono.variable} antialiased`}
