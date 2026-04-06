@@ -109,9 +109,9 @@ function syncCLAUDEmd(projectRoot) {
     }
   }
 
-  // Copy CLAUDE.md
+  // Copy CLAUDE.md to parent directory (shared across all projects)
   const src = join(ruleRepoPath, "CLAUDE.md");
-  const dest = join(projectRoot, "CLAUDE.md");
+  const dest = join(parentDir, "CLAUDE.md");
   if (existsSync(src)) {
     copyFileSync(src, dest);
     log.success("CLAUDE.md synced");
