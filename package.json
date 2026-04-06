@@ -6,7 +6,9 @@
     "dev": "NODE_ENV=development next dev -p 3888",
     "build": "next build",
     "start": "NODE_ENV=prod next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "sync": "node scripts/project-sync.mjs",
+    "predev": "node scripts/project-sync.mjs"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.1.1",
